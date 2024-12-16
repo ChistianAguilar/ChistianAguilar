@@ -1,0 +1,234 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tragamonedas</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .game-container {
+            text-align: center;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .slot-machine {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .reel {
+            font-size: 50px;
+            margin: 0 10px;
+            padding: 10px;
+            border: 2px solid #000;
+            border-radius: 5px;
+        }
+        @keyframes spin {
+            0% { transform: translateY(-50px); }
+            100% { transform: translateY(50px); }
+        }
+        .spinning {
+            animation: rgbSpin 0.5s linear infinite;
+        }
+        @keyframes rgbSpin {
+            0% { color: red; transform: translateY(-50px); }
+            33% { color: green; }
+            66% { color: blue; }
+            100% { color: red; transform: translateY(50px); }
+        }
+        button {
+            font-size: 16px;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        #statsButton {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+        }
+        #statsModal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <button id="statsButton">Estadísticas</button>
+    <div class="game-container">
+        <h1>Tragamonedas</h1>
+        <div class="slot-machine">
+            <div class="reel" id="reel1">🍎</div>
+            <div class="reel" id="reel2">🍊</div>
+            <div class="reel" id="reel3">🍇</div>
+        </div>
+        <p id="chances">Chances: 0</p>
+        <p id="message"></p>
+        <input type="number" id="deposit" min="1" max="500" placeholder="Depositar (max 500)">
+        <button id="depositBtn">Depositar</button>
+        <button id="spinBtn" disabled>Girar</button>
+    </div>
+    <div id="statsModal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Estadísticas</h2>
+            <p id="playCount"></p>
+            <p id="maxPayout"></p>
+            <p id="minPayout"></p>
+            <p id="maxDeposit"></p>
+            <p id="minDeposit"></p>
+            <p id="fruitStats"></p>
+        </div>
+    </div>
+    <script>
+        const fruits = ['🍎', '🍊', '🍇', '🍒', '🍋'];
+        const fruitValues = {'🍎': 10, '🍊': 20, '🍇': 30, '🍒': 40, '🍋': 50};
+        let chances = 0;
+        let totalDeposit = 0;
+        let playCount = 0;
+        let maxPayout = 0;
+        let minPayout = Infinity;
+        let maxDeposit = 0;
+        let minDeposit = Infinity;
+        let fruitCounts = {'🍎': 0, '🍊': 0, '🍇': 0, '🍒': 0, '🍋': 0};
+
+        const reels = [
+            document.getElementById('reel1'),
+            document.getElementById('reel2'),
+            document.getElementById('reel3')
+        ];
+        const chancesDisplay = document.getElementById('chances');
+        const messageDisplay = document.getElementById('message');
+        const depositInput = document.getElementById('deposit');
+        const depositBtn = document.getElementById('depositBtn');
+        const spinBtn = document.getElementById('spinBtn');
+        const statsBtn = document.getElementById('statsButton');
+        const statsModal = document.getElementById('statsModal');
+        const closeBtn = document.getElementsByClassName('close')[0];
+
+        depositBtn.addEventListener('click', () => {
+            const amount = parseInt(depositInput.value);
+            if (amount > 0 && amount <= 500) {
+                totalDeposit += amount;
+                const newChances = Math.floor(amount / 5);
+                chances = Math.min(chances + newChances, 100);
+                chancesDisplay.textContent = `Chances: ${chances}`;
+                spinBtn.disabled = false;
+                messageDisplay.textContent = `Depositaste $${amount}. Tienes ${chances} chances en total.`;
+                depositInput.value = '';
+                if (chances === 100) {
+                    messageDisplay.textContent += ' Has alcanzado el máximo de 100 chances.';
+                }
+                maxDeposit = Math.max(maxDeposit, amount);
+                minDeposit = Math.min(minDeposit, amount);
+            } else {
+                alert('Por favor, ingrese un monto válido (1-500)');
+            }
+        });
+
+        spinBtn.addEventListener('click', spin);
+
+        function spin() {
+            if (chances > 0) {
+                chances--;
+                playCount++;
+                spinBtn.disabled = true;
+                reels.forEach(reel => {
+                    reel.classList.add('spinning');
+                });
+                setTimeout(() => {
+                    const results = reels.map(reel => {
+                        const fruit = fruits[Math.floor(Math.random() * fruits.length)];
+                        reel.textContent = fruit;
+                        fruitCounts[fruit]++;
+                        return fruit;
+                    });
+                    reels.forEach(reel => {
+                        reel.classList.remove('spinning');
+                    });
+                    checkWin(results);
+                    chancesDisplay.textContent = `Chances: ${chances}`;
+                    if (chances === 0) {
+                        spinBtn.disabled = true;
+                    } else {
+                        spinBtn.disabled = false;
+                    }
+                }, 1500);
+            }
+        }
+
+        function checkWin(results) {
+            if (results[0] === results[1] && results[1] === results[2]) {
+                const winAmount = fruitValues[results[0]] * 3;
+                messageDisplay.textContent = `¡Ganaste $${winAmount}!`;
+                maxPayout = Math.max(maxPayout, winAmount);
+                minPayout = Math.min(minPayout, winAmount);
+            } else {
+                messageDisplay.textContent = 'Suerte para la próxima';
+            }
+        }
+
+        statsBtn.onclick = () => {
+            updateStats();
+            statsModal.style.display = 'block';
+        }
+
+        closeBtn.onclick = () => {
+            statsModal.style.display = 'none';
+        }
+
+        window.onclick = (event) => {
+            if (event.target == statsModal) {
+                statsModal.style.display = 'none';
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('playCount').textContent = `Veces jugadas: ${playCount}`;
+            document.getElementById('maxPayout').textContent = `Pago máximo: $${maxPayout}`;
+            document.getElementById('minPayout').textContent = `Pago mínimo: $${minPayout === Infinity ? 0 : minPayout}`;
+            document.getElementById('maxDeposit').textContent = `Depósito máximo: $${maxDeposit}`;
+            document.getElementById('minDeposit').textContent = `Depósito mínimo: $${minDeposit === Infinity ? 0 : minDeposit}`;
+            
+            const totalFruits = Object.values(fruitCounts).reduce((a, b) => a + b, 0);
+            const fruitPercentages = Object.entries(fruitCounts).map(([fruit, count]) => {
+                return `${fruit}: ${((count / totalFruits) * 100).toFixed(2)}%`;
+            }).join(', ');
+            
+            document.getElementById('fruitStats').textContent = `Estadísticas de frutas: ${fruitPercentages}`;
+        }
+    </script>
+</body>
+</html>
